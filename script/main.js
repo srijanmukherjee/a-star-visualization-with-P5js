@@ -1,5 +1,5 @@
-const cols = 500;
-const rows = 500;
+const cols = 150;
+const rows = 150;
 const grid = new Array(cols);
 
 let w;
@@ -15,8 +15,12 @@ let path = [];
 let bestDist = Infinity;
 let noSolution = false;
 
-// info
+// settings/info
+let startStopBtn;
 let p;
+
+let running = false;
+let done = false;
 
 function setup() {
     const dim = min(windowHeight, windowWidth)
@@ -25,6 +29,37 @@ function setup() {
     w = width / cols;
     h = height / rows;
 
+    generate();
+
+    startStopBtn = createButton("Start");
+    let resetBtn = createButton("Reset"); 
+    p = createP();
+
+    startStopBtn.elt.addEventListener("click", () => {
+        if (running) {
+            running = false;
+            startStopBtn.elt.innerText = "Start";
+        } else {
+            running = true;
+            startStopBtn.elt.innerText = "Stop";
+        }
+    });
+
+    resetBtn.elt.addEventListener("click", () => {
+        running = false;
+        done = false;
+        startStopBtn.elt.innerText = "Start";
+        OPEN.arr = [null];
+        OPEN.n = 0;
+        SEEN.clear();
+        CLOSED.clear();
+        background(255)
+        generate();
+    })
+    
+}
+
+function generate() {
     for (let i = 0; i < cols; i++)
         grid[i] = new Array(rows);
 
@@ -48,19 +83,19 @@ function setup() {
     // precompute the heuristics
     for (let i = 0; i < cols; i++)
         for (let j = 0; j < rows; j++)
-            grid[i][j].h = heuristic(grid[i][j], end)
-
-    OPEN.insert(start);
-    SEEN.add(start);
-
-    p = createP();
+            grid[i][j].h = heuristic(grid[i][j], end);
 
     for (let i = 0; i < cols; i++)
         for (let j = 0; j < rows; j++)
             grid[i][j].show(color(255));
+
+    OPEN.insert(start);
+    SEEN.add(start);
 }
 
 function draw() {
+    if (!running) return;
+
     let current;
     if (OPEN.n > 0) {
         current = OPEN.delete();
@@ -109,20 +144,20 @@ function draw() {
     }
 
     if (current != end) {
+        background(255);
+        for (let i = 0; i < cols; i++)
+            for (let j = 0; j < rows; j++)
+                grid[i][j].show(color(255));
+            
         for (const spot of SEEN)
             spot.show(color(64, 229, 90))
 
         for (const spot of CLOSED)
-            spot.show(color(255, 72, 72))
-
-        push()
-        fill(255, 0, 255)
-        if (current)
-            circle(current.x * w + w / 2, current.y * h + h / 2, 2 * w);
-        pop()
+            spot.show(color(255, 72, 72));
     }
 
 
+    // draw path
     if (current) {
         let ptr = current;
         push()
@@ -142,6 +177,7 @@ function draw() {
         pop()
     }
 
+    // draw end point
     if (current == end) {
         push();
             ellipseMode(CENTER);
