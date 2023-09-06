@@ -1,0 +1,165 @@
+const cols = 500;
+const rows = 500;
+const grid = new Array(cols);
+
+let w;
+let h;
+
+// A* parameters
+const OPEN = new Heap((a, b) => a.f < b.f);
+const CLOSED = new Set();
+const SEEN = new Set();
+let start;
+let end;
+let path = [];
+let bestDist = Infinity;
+let noSolution = false;
+
+// info
+let p;
+
+function setup() {
+    const dim = min(windowHeight, windowWidth)
+    createCanvas(dim, dim);
+
+    w = width / cols;
+    h = height / rows;
+
+    for (let i = 0; i < cols; i++)
+        grid[i] = new Array(rows);
+
+    for (let i = 0; i < cols; i++) {
+        for (let j = 0; j < rows; j++) {
+            grid[i][j] = new Spot(i, j);
+        }
+    }
+
+    for (let i = 0; i < cols; i++)
+        for (let j = 0; j < rows; j++)
+            grid[i][j].addNeighbors(grid);
+
+
+    start = grid[0][0];
+    end = grid[cols - 1][rows - 1];
+
+    start.isObstacle = false;
+    end.isObstacle = false;
+
+    // precompute the heuristics
+    for (let i = 0; i < cols; i++)
+        for (let j = 0; j < rows; j++)
+            grid[i][j].h = heuristic(grid[i][j], end)
+
+    OPEN.insert(start);
+    SEEN.add(start);
+
+    p = createP();
+
+    for (let i = 0; i < cols; i++)
+        for (let j = 0; j < rows; j++)
+            grid[i][j].show(color(255));
+}
+
+function draw() {
+    let current;
+    if (OPEN.n > 0) {
+        current = OPEN.delete();
+        SEEN.delete(current);
+        CLOSED.add(current);
+
+        if (current === end) {
+            console.log("Done");
+            SEEN.clear();
+            OPEN.arr = [null];
+            OPEN.n = 0;
+            CLOSED.clear();
+            noLoop();
+        } else {
+            for (const neighbor of current.neighbors) {
+                if (CLOSED.has(neighbor) || neighbor.isObstacle)
+                    continue
+    
+                const tentative_gScore = current.g + 1;
+                let newPath = false;
+
+                if (SEEN.has(neighbor)) {
+                    if (tentative_gScore < neighbor.g) {
+                        neighbor.g = tentative_gScore;
+                        neighbor.f = neighbor.g + neighbor.h;
+                        OPEN.heapify();
+                        newPath = true;
+                    }
+                } else {
+                    neighbor.g = tentative_gScore;
+                    newPath = true;
+                    OPEN.insert(neighbor);
+                    SEEN.add(neighbor)
+                }
+                
+                neighbor.f = neighbor.g + neighbor.h;
+                if (newPath) 
+                    neighbor.cameFrom = current;
+
+            }
+        }
+    } else {
+        noSolution = true;
+        console.log("No solution");
+        noLoop();
+    }
+
+    if (current != end) {
+        for (const spot of SEEN)
+            spot.show(color(64, 229, 90))
+
+        for (const spot of CLOSED)
+            spot.show(color(255, 72, 72))
+
+        push()
+        fill(255, 0, 255)
+        if (current)
+            circle(current.x * w + w / 2, current.y * h + h / 2, 2 * w);
+        pop()
+    }
+
+
+    if (current) {
+        let ptr = current;
+        push()
+        noFill();
+        beginShape();
+        stroke(color(72, 161, 255))
+        strokeWeight(4);
+        curveVertex(ptr.x * w + w * 0.5, ptr.y * h + h * .5);
+        while (ptr) {
+            curveVertex(ptr.x * w + w * 0.5, ptr.y * h + h * .5);
+            if (ptr.cameFrom == undefined)
+                curveVertex(ptr.x * w + w * 0.5, ptr.y * h + h * .5);
+            prev = ptr;
+            ptr = ptr.cameFrom;
+        }
+        endShape();
+        pop()
+    }
+
+    if (current == end) {
+        push();
+            ellipseMode(CENTER);
+            fill(255, 0, 0);
+        circle(end.x * w + w / 2, end.y * h + h / 2, w);
+        pop();
+    }
+
+    p.elt.innerHTML = `
+    spots: ${rows * cols}<br>
+    open: ${OPEN.n}<br>
+    closed: ${CLOSED.size}<br>
+    heuristic fn: euclidian<br>
+    current g = ${current ? current.g : 'NA'}<br>
+    status: ${noSolution ? 'No solution' : (end == current ? 'Path found' : 'possible')}`
+}
+
+function heuristic(a, b) {
+    // return pow(abs(a.x - b.x) + abs(a.y - b.y), 2);
+    return 2 * dist(a.x, a.y, b.x, b.y)
+}
